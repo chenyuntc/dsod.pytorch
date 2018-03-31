@@ -85,6 +85,37 @@ def box_iou(box1, box2):
     iou = inter / (area1[:,None] + area2 - inter)
     return iou
 
+import numpy as np
+def box_nms_numpy(bboxes, scores=None, threshold=0.5, limit=None):
+    bboxes = bboxes.numpy()
+    scores = scores.numpy()
+    if len(bboxes) == 0:
+        return np.zeros((0,), dtype=np.int32)
+
+    if scores is not None:
+        order = scores.argsort()[::-1]
+        bboxes = bboxes[order]
+    bbox_area = np.prod(bboxes[:, 2:] - bboxes[:, :2], axis=1)
+
+    selec = np.zeros(bboxes.shape[0], dtype=bool)
+    for i, b in enumerate(bboxes):
+        tl = np.maximum(b[:2], bboxes[selec, :2])
+        br = np.minimum(b[2:], bboxes[selec, 2:])
+        area = np.prod(br - tl, axis=1) * (tl < br).all(axis=1)
+
+        iou = area / (bbox_area[i] + bbox_area[selec] - area)
+        if (iou >= threshold).any():
+            continue
+
+        selec[i] = True
+        if limit is not None and np.count_nonzero(selec) >= limit:
+            break
+
+    selec = np.where(selec)[0]
+    if scores is not None:
+        selec = order[selec]
+    return torch.from_numpy(selec).long()
+
 def box_nms(bboxes, scores, threshold=0.5, mode='union'):
     '''Non maximum suppression.
 

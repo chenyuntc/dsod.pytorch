@@ -265,11 +265,11 @@ def calc_detection_voc_prec_rec(
                 else:
                     match[l].append(0)
 
-    for iter_ in (
-            pred_bboxes, pred_labels, pred_scores,
-            gt_bboxes, gt_labels, gt_difficults):
-        if next(iter_, None) is not None:
-            raise ValueError('Length of input iterables need to be same.')
+    # for iter_ in (
+    #         pred_bboxes, pred_labels, pred_scores,
+    #         gt_bboxes, gt_labels, gt_difficults):
+    #     if next(iter_, None) is not None:
+    #         raise ValueError('Length of input iterables need to be same.')
 
     n_fg_class = max(n_pos.keys()) + 1
     prec = [None] * n_fg_class

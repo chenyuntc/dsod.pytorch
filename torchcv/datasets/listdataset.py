@@ -72,7 +72,8 @@ class ListDataset(data.Dataset):
         '''
         # Load image and boxes.
         fname = self.fnames[idx]
-        img = Image.open(os.path.join(self.root, fname))
+        file_path = os.path.join(self.root, fname)
+        img = Image.open(file_path)
         if img.mode != 'RGB':
             img = img.convert('RGB')
 

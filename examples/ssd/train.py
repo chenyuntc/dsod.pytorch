@@ -27,16 +27,22 @@ from torchcv.models import DSOD
 from torchcv.evaluations.voc_eval import voc_eval
 
 class Config:
+    lr = 0.001
+    resume = False
+    checkpoint = '/home/claude.cy/file/ssd/checkpoint/ckpt.pth'
+    data_root='/home/claude.cy/.data/all_images'
+    voc07_trainval = 'torchcv/datasets/voc/voc07_trainval.txt'
+    voc12_trainval = 'torchcv/datasets/voc/voc12_trainval.txt'
+    voc07_test = 'torchcv/datasets/voc/voc07_test.txt'
+    batch_size=16
+    num_worker=8
+
+
+args = Config()
 
 
 
 
-parser = argparse.ArgumentParser(description='PyTorch SSD Training')
-parser.add_argument('--lr', default=1e-3, type=float, help='learning rate')
-parser.add_argument('--resume', '-r', action='store_true', help='resume from checkpoint')
-# parser.add_argument('--model', default='/home/claude.cy/code/tmp/torchcv/fpnssd512_21_fpn50.pth', type=str, help='initialized model path')
-parser.add_argument('--checkpoint', default='/home/claude.cy/file/ssd/checkpoint/ckpt.pth', type=str, help='checkpoint path')
-args = parser.parse_args()
 import ipdb
 ipdb.set_trace()
 # Model
@@ -68,9 +74,8 @@ def transform_train(img, boxes, labels):
     boxes, labels = box_coder.encode(boxes, labels)
     return img, boxes, labels
 
-trainset = ListDataset(root='/home/claude.cy/.data/all_images',
-                       list_file=['torchcv/datasets/voc/voc07_trainval.txt',
-                                  'torchcv/datasets/voc/voc12_trainval.txt'],
+trainset = ListDataset(root=args.data_root,
+                       list_file=[args.voc07_trainval,args.voc12_trainval],
                        transform=transform_train)
 
 def transform_test(img, boxes, labels):
@@ -82,12 +87,9 @@ def transform_test(img, boxes, labels):
     boxes, labels = box_coder.encode(boxes, labels)
     return img, boxes, labels
 
-testset = ListDataset(root='/home/claude.cy/.data/all_images',
-                      list_file='torchcv/datasets/voc/voc07_test.txt',
-                      transform=transform_test)
 
-trainloader = torch.utils.data.DataLoader(trainset, batch_size=8, shuffle=True, num_workers=8)
-testloader = torch.utils.data.DataLoader(testset, batch_size=8, shuffle=False, num_workers=8)
+
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=8)
 
 net.cuda()
 #net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
@@ -116,38 +118,6 @@ def train(epoch):
         print('train_loss: %.3f | avg_loss: %.3f [%d/%d]'
               % (loss.data[0], train_loss/(batch_idx+1), batch_idx+1, len(trainloader)))
 
-# Test
-def test(epoch):
-    print('\nTest')
-    net.eval()
-    test_loss = 0
-    for batch_idx, (inputs, loc_targets, cls_targets) in enumerate(testloader):
-        inputs = Variable(inputs.cuda(), volatile=True)
-        loc_targets = Variable(loc_targets.cuda())
-        cls_targets = Variable(cls_targets.cuda())
-
-        loc_preds, cls_preds = net(inputs)
-        loss = criterion(loc_preds, loc_targets, cls_preds, cls_targets)
-        test_loss += loss.data[0]
-        print('test_loss: %.3f | avg_loss: %.3f [%d/%d]'
-              % (loss.data[0], test_loss/(batch_idx+1), batch_idx+1, len(testloader)))
-
-    # Save checkpoint
-    global best_loss
-    test_loss /= len(testloader)
-    if test_loss < best_loss:
-        print('Saving..')
-        state = {
-            'net': net.state_dict(),
-            'loss': test_loss,
-            'epoch': epoch,
-        }
-        if not os.path.isdir(os.path.dirname(args.checkpoint)):
-            os.mkdir(os.path.dirname(args.checkpoint))
-        torch.save(state, args.checkpoint)
-        best_loss = test_loss
-
-
 def eval(net):
 
     net.eval()
@@ -159,8 +129,8 @@ def eval(net):
         ])(img)
         return img, boxes, labels
 
-    dataset = ListDataset(root='/home/claude.cy/.data/all_images', \
-                        list_file='torchcv/datasets/voc/voc07_test.txt',
+    dataset = ListDataset(root=args.data_root, \
+                        list_file=args.voc07_test,
                         transform=transform)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False, num_workers=8)
     box_coder = SSDBoxCoder(net)
