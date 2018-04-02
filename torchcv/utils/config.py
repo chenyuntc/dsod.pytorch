@@ -7,13 +7,14 @@ class Config:
     voc07_trainval = 'torchcv/datasets/voc/voc07_trainval.txt'
     voc12_trainval = 'torchcv/datasets/voc/voc12_trainval.txt'
     voc07_test = 'torchcv/datasets/voc/voc07_test.txt'
-    batch_size = 16
+    batch_size = 32
     num_worker = 8
     plot_every = 20
     debug_file = '/tmp/debugdsod'
-    load_path ='examples/ssd/checkpoint/ckpt.pth'
+    load_path = None #'examples/ssd/checkpoint/ckpt.pth'
     img_size = 300
     env = 'dsod'
+    iter_size = 4
 
     def _parse(self, kwargs):
         state_dict = self._state_dict()

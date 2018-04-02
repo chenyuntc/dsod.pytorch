@@ -49,11 +49,17 @@ class DSOD(nn.Module):
         in_channels = [800,512,512,256,256,256]
         num_anchors = (4, 6, 6, 6, 4, 4)
         for inC,num_anchor in zip(in_channels,num_anchors):
-            self.loc_layers += [nn.Conv2d(inC,
-                                          num_anchor*4, kernel_size=3, padding=1)]
-            self.cls_layers += [nn.Conv2d(inC, 
-                                        num_anchor* num_classes, kernel_size=3, padding=1)]
-
+            # self.loc_layers += [nn.Conv2d(inC, num_anchor*4, kernel_size=3, padding=1)]
+            # self.cls_layers += [nn.Conv2d(inC, num_anchor* num_classes, kernel_size=3, padding=1)
+            #                                   ]
+            self.loc_layers += [nn.Sequential(nn.Conv2d(inC,
+                                          num_anchor*4, kernel_size=3, padding=1),
+                                              nn.BatchNorm2d(num_anchor*4)
+                                              )]
+            self.cls_layers += [nn.Sequential(nn.Conv2d(inC,
+                                        num_anchor* num_classes, kernel_size=3, padding=1),
+                                              nn.BatchNorm2d(num_anchor* num_classes)
+                                              )]
         self.normalize = nn.ModuleList([L2Norm(chan,20) for chan in in_channels])
     def forward(self, x):
         loc_preds = []

@@ -78,12 +78,12 @@ class DenseSupervision1(nn.Module):
         self.model_name='DenseSupervision'
 
         self.right = nn.Sequential(
+            # nn.BatchNorm2d(inC),
+            # nn.ReLU(inplace=True),
+            # nn.Conv2d(inC,outC,1),
             nn.BatchNorm2d(inC),
             nn.ReLU(inplace=True),
-            nn.Conv2d(inC,outC,1),
-            nn.BatchNorm2d(outC),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(outC,outC,3,2,1)
+            nn.Conv2d(inC,outC,3,2,1)
         )
 
     def forward(self,x1,x2):
@@ -145,16 +145,16 @@ class DenseNet(nn.Module):
         x = self.stem(x)
 
         x = self.dense1(x)
-        x,x = self.trans1(x)
+        _,x = self.trans1(x)
 
         x = self.dense2(x)
         f1,x = self.trans2(x)
         
         x = self.dense3(x)
-        x,x = self.trans3(x)
+        _,x = self.trans3(x)
 
         x = self.dense4(x)
-        x,x = self.trans4(x)
+        _,x = self.trans4(x)
         
         f2 = self.dense_sup1(f1,x)
         f3 = self.dense_sup2(f2)

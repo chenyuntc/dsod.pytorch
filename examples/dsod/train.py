@@ -139,10 +139,7 @@ def main(**kwargs):
     net = DSOD(num_classes=21)
     start_epoch = 0  # start from epoch 0 or last epoch
 
-    if opt.load_path is not None:
-        print('==> Resuming from checkpoint..')
-        checkpoint = torch.load(opt.load_path)
-        net.load_state_dict(checkpoint['net'])
+
 
     # Dataset
     print('==> Preparing dataset..')
@@ -152,11 +149,19 @@ def main(**kwargs):
                            list_file=[opt.voc07_trainval, opt.voc12_trainval],
                            transform=Transform(box_coder, True))
 
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True, num_workers=8)
+    trainloader = torch.utils.data.DataLoader(trainset,
+                                              batch_size=opt.batch_size,
+                                              shuffle=True,
+                                              num_workers=8,
+                                              pin_memory=True)
 
     net.cuda()
     net = torch.nn.DataParallel(net, device_ids=range(torch.cuda.device_count()))
     cudnn.benchmark = True
+    if opt.load_path is not None:
+        print('==> Resuming from checkpoint..')
+        checkpoint = torch.load(opt.load_path)
+        net.load_state_dict(checkpoint['net'])
 
     criterion = SSDLoss(num_classes=21)
     optimizer = optim.SGD(net.parameters(), lr=opt.lr, momentum=0.9, weight_decay=5e-4)
@@ -166,41 +171,59 @@ def main(**kwargs):
         print('\nEpoch: %d' % epoch)
         net.train()
         train_loss = 0
+        optimizer.zero_grad()
+        ix = 0
         for batch_idx, (inputs, loc_targets, cls_targets) in tqdm(enumerate(trainloader)):
             inputs = Variable(inputs.cuda())
             loc_targets = Variable(loc_targets.cuda())
             cls_targets = Variable(cls_targets.cuda())
 
-            optimizer.zero_grad()
             loc_preds, cls_preds = net(inputs)
+            ix+=1
             loss = criterion(loc_preds, loc_targets, cls_preds, cls_targets)
             loss.backward()
-            optimizer.step()
-
             train_loss += loss.data[0]
-            if (batch_idx + 1) % opt.plot_every == 0:
-                vis.plot('loss', train_loss / (batch_idx + 1))
+            if (batch_idx+1) % (opt.iter_size ) == 0:
+            # if True:
+                for name,p in net.named_parameters():p.grad.data.div_(ix)
+                ix = 0
+                optimizer.step()
+                optimizer.zero_grad()
 
-                img = predict(net, box_coder, os.path.join(opt.data_root, trainset.fnames[batch_idx]))
-                vis.img('predict', np.array(img).transpose(2, 0, 1))
 
-                if os.path.exists(opt.debug_file):
-                    import ipdb
-                    ipdb.set_trace()
+                if (batch_idx + 1) % opt.plot_every == 0:
+                    vis.plot('loss', train_loss / (batch_idx + 1))
 
-        aps = eval(net.module,test_num=epoch*100+100)
-        map_ = aps['map']
-        if map_ > best_map_:
-            print('Saving..')
+                    img = predict(net, box_coder, os.path.join(opt.data_root, trainset.fnames[batch_idx]))
+                    vis.img('predict', np.array(img).transpose(2, 0, 1))
+
+                    if os.path.exists(opt.debug_file):
+                        import ipdb
+                        ipdb.set_trace()
+
+        if (epoch+1)%10 == 0 :
             state = {
-                'net': net.state_dict(),
-                'map': best_map_,
-                'epoch': epoch,
+                    'net': net.module.state_dict(),
+                    # 'map': best_map_,
+                    'epoch': epoch,
             }
-            best_map_ = map_
-            if not os.path.isdir(os.path.dirname(opt.checkpoint)):
-                os.mkdir(os.path.dirname(opt.checkpoint))
-            torch.save(state, opt.checkpoint + '/%s.pth' % best_map_)
+            torch.save(state, opt.checkpoint + '/%s.pth' % epoch)
+        if (epoch+1) % 30 == 0:
+            for param_group in optimizer.param_groups:
+                param_group['lr'] *= 0.1
+        # aps = eval(net.module,test_num=epoch*100+100)
+        # map_ = aps['map']
+        # if map_ > best_map_:
+        #     print('Saving..')
+        #     state = {
+        #         'net': net.state_dict(),
+        #         'map': best_map_,
+        #         'epoch': epoch,
+        #     }
+        #     best_map_ = map_
+        #     if not os.path.isdir(os.path.dirname(opt.checkpoint)):
+        #         os.mkdir(os.path.dirname(opt.checkpoint))
+        #     torch.save(state, opt.checkpoint + '/%s.pth' % best_map_)
 
 
 if __name__ == '__main__':
