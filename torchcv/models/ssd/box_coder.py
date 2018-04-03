@@ -6,7 +6,7 @@ import itertools
 from torchcv.utils import meshgrid
 from torchcv.utils.box import box_iou, box_nms, change_box_order
 
-
+from torchcv.models.ssd.nms.pth_nms import  pth_nms as nms_gpu
 class SSDBoxCoder:
     def __init__(self, ssd_model):
         self.steps = ssd_model.steps
@@ -119,7 +119,7 @@ class SSDBoxCoder:
             box = box_preds[mask.nonzero().squeeze()]
             score = score[mask]
 
-            keep = box_nms(box, score, nms_thresh)
+            keep = nms_gpu(torch.cat([box,score[:,None]],1).cuda(),nms_thresh).cpu()
             boxes.append(box[keep])
             labels.append(torch.LongTensor(len(box[keep])).fill_(i))
             scores.append(score[keep])
