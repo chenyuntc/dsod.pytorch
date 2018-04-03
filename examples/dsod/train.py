@@ -1,6 +1,7 @@
 from __future__ import print_function
 import matplotlib
-
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 matplotlib.use('agg')
 import os
 import random
@@ -108,6 +109,7 @@ def eval(net,test_num=10000):
 
 
 def predict(net, box_coder, img):
+    net.eval()
     if isinstance(img, str):
         img = Image.open(img)
         ow = oh = 300
@@ -126,6 +128,7 @@ def predict(net, box_coder, img):
     draw = ImageDraw.Draw(img)
     for box in boxes:
         draw.rectangle(list(box), outline='red')
+    net.train()
     return img
 
 
@@ -161,7 +164,7 @@ def main(**kwargs):
     if opt.load_path is not None:
         print('==> Resuming from checkpoint..')
         checkpoint = torch.load(opt.load_path)
-        net.load_state_dict(checkpoint['net'])
+        net.module.load_state_dict(checkpoint['net'])
 
     criterion = SSDLoss(num_classes=21)
     optimizer = optim.SGD(net.parameters(), lr=opt.lr, momentum=0.9, weight_decay=5e-4)
@@ -201,29 +204,31 @@ def main(**kwargs):
                         import ipdb
                         ipdb.set_trace()
 
-        if (epoch+1)%10 == 0 :
-            state = {
-                    'net': net.module.state_dict(),
-                    # 'map': best_map_,
-                    'epoch': epoch,
-            }
-            torch.save(state, opt.checkpoint + '/%s.pth' % epoch)
+        # if (epoch+1)%10 == 0 :
+        #     state = {
+        #             'net': net.module.state_dict(),
+        #             # 'map': best_map_,
+        #             'epoch': epoch,
+        #     }
+        #     torch.save(state, opt.checkpoint + '/%s.pth' % epoch)
         if (epoch+1) % 30 == 0:
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.1
-        # aps = eval(net.module,test_num=epoch*100+100)
-        # map_ = aps['map']
-        # if map_ > best_map_:
-        #     print('Saving..')
-        #     state = {
-        #         'net': net.state_dict(),
-        #         'map': best_map_,
-        #         'epoch': epoch,
-        #     }
-        #     best_map_ = map_
-        #     if not os.path.isdir(os.path.dirname(opt.checkpoint)):
-        #         os.mkdir(os.path.dirname(opt.checkpoint))
-        #     torch.save(state, opt.checkpoint + '/%s.pth' % best_map_)
+        if (epoch+1)%5 ==0:
+            aps = eval(net.module)
+            map_ = aps['map']
+            if map_ > best_map_:
+                print('Saving..')
+                state = {
+                    'net': net.module.state_dict(),
+                    'map': best_map_,
+                    'epoch': epoch,
+                }
+                best_map_ = map_
+                if not os.path.isdir(os.path.dirname(opt.checkpoint)):
+                    os.mkdir(os.path.dirname(opt.checkpoint))
+                torch.save(state, opt.checkpoint + '/%s.pth' % best_map_)
+            vis.log(dict(epoch=epoch,map=map_))
 
 
 if __name__ == '__main__':
