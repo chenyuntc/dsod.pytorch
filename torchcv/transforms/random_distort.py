@@ -10,7 +10,7 @@ def random_distort(
     brightness_delta=32/255.,
     contrast_delta=0.5,
     saturation_delta=0.5,
-    hue_delta=0.1):
+    hue_delta=18/255.):
     '''A color related data augmentation used in SSD.
 
     Args:

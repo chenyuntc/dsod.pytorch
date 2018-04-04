@@ -53,14 +53,17 @@ class DSOD(nn.Module):
             # self.cls_layers += [nn.Conv2d(inC, num_anchor* num_classes, kernel_size=3, padding=1)
             #                                   ]
             self.loc_layers += [nn.Sequential(nn.Conv2d(inC,
-                                          num_anchor*4, kernel_size=3, padding=1),
+                                          num_anchor*4, kernel_size=3, padding=1,bias=False),
                                               nn.BatchNorm2d(num_anchor*4)
                                               )]
             self.cls_layers += [nn.Sequential(nn.Conv2d(inC,
-                                        num_anchor* num_classes, kernel_size=3, padding=1),
+                                        num_anchor* num_classes, kernel_size=3, padding=1,bias=False),
                                               nn.BatchNorm2d(num_anchor* num_classes)
                                               )]
         self.normalize = nn.ModuleList([L2Norm(chan,20) for chan in in_channels])
+
+        self.reset_parameters()
+    
     def forward(self, x):
         loc_preds = []
         cls_preds = []
@@ -79,6 +82,19 @@ class DSOD(nn.Module):
         loc_preds = torch.cat(loc_preds, 1)
         cls_preds = torch.cat(cls_preds, 1)
         return loc_preds, cls_preds
+    
+    def reset_parameters(self):
+        for name,param in self.extractor.named_parameters():
+            if hasattr(param,'weight'):
+                nn.init.xavier_uniform(param.weight.data,gain=nn.init.calculate_gain('relu'))
+
+        for name,param in self.loc_layers.named_parameters():
+            if hasattr(param,'weight'):
+                nn.init.normal(param.weight.data,std=0.01)
+
+        for name,param in self.cls_layers.named_parameters():
+            if hasattr(param,'weight'):
+                nn.init.normal(param.weight.data,std=0.01)
 
 if __name__ == '__main__':
     m = DSOD(21)

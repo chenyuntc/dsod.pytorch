@@ -7,13 +7,13 @@ from torch.autograd import Variable
 
 def stem():
     return nn.Sequential(
-        nn.Conv2d(3, 64, 3, 2, 1),
+        nn.Conv2d(3, 64, 3, 2, 1,bias=False),
         nn.BatchNorm2d(64),
         nn.ReLU(inplace=True),
-        nn.Conv2d(64, 64, 3,1,1),
+        nn.Conv2d(64, 64, 3,1,1,bias=False),
         nn.BatchNorm2d(64),
         nn.ReLU(inplace=True),
-        nn.Conv2d(64, 128, 3,1,1),
+        nn.Conv2d(64, 128, 3,1,1,bias=False),
         nn.BatchNorm2d(128),
         nn.ReLU(inplace=True),
         nn.MaxPool2d(2, 2,ceil_mode=True)
@@ -28,10 +28,10 @@ class DenseLayer(nn.Module):
         self.conv = nn.Sequential(
             nn.BatchNorm2d(inC),
             nn.ReLU(inplace=True),
-            nn.Conv2d(inC, midC, 1),
+            nn.Conv2d(inC, midC, 1,bias=False),
             nn.BatchNorm2d(midC),
             nn.ReLU(inplace=True),
-            nn.Conv2d(midC, growth_rate, 3, padding=1),
+            nn.Conv2d(midC, growth_rate, 3, padding=1,bias=False),
         )
 
     def forward(self, x):
@@ -62,7 +62,7 @@ class TransitionLayer(nn.Module):
         self.conv = nn.Sequential(
             nn.BatchNorm2d(inC),
             nn.ReLU(inplace=True),
-            nn.Conv2d(inC,outC,1)
+            nn.Conv2d(inC,outC,1,bias=False)
         )
         self.pool = nn.MaxPool2d(2,2,ceil_mode=True) if pool else lambda x: x
 
@@ -81,9 +81,10 @@ class DenseSupervision1(nn.Module):
             # nn.BatchNorm2d(inC),
             # nn.ReLU(inplace=True),
             # nn.Conv2d(inC,outC,1),
+            nn.MaxPool2d(2,2,ceil_mode=True),
             nn.BatchNorm2d(inC),
             nn.ReLU(inplace=True),
-            nn.Conv2d(inC,outC,3,2,1)
+            nn.Conv2d(inC,outC,1,bias=False)
         )
 
     def forward(self,x1,x2):
@@ -101,15 +102,15 @@ class DenseSupervision(nn.Module):
             nn.MaxPool2d(2,2,ceil_mode=True),
             nn.BatchNorm2d(inC),
             nn.ReLU(inplace=True),
-            nn.Conv2d(inC,outC,1)
+            nn.Conv2d(inC,outC,1,bias=False)
         )
         self.right = nn.Sequential(
             nn.BatchNorm2d(inC),
             nn.ReLU(inplace=True),
-            nn.Conv2d(inC,outC,1),
+            nn.Conv2d(inC,outC,1,bias=False),
             nn.BatchNorm2d(outC),
             nn.ReLU(inplace=True),
-            nn.Conv2d(outC,outC,3,2,1)
+            nn.Conv2d(outC,outC,3,2,1,bias=False)
         )
 
     def forward(self,x):
