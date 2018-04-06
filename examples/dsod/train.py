@@ -34,7 +34,7 @@ def caffe_normalize(x):
             transforms.Lambda(lambda x:255*x[[2,1,0]]) ,
             transforms.Normalize([104,117,123], (1,1,1)), # make it the same as caffe
                   # bgr and 0-255
-        ])(img)
+        ])(x)
 def Transform(box_coder, train=True):
     def train_(img, boxes, labels):
         img = random_distort(img)
@@ -45,7 +45,7 @@ def Transform(box_coder, train=True):
         img, boxes = random_flip(img, boxes)
         img = transforms.Compose([
             transforms.ToTensor(),
-           caffe_normalize
+            caffe_normalize
         ])(img)
         boxes, labels = box_coder.encode(boxes, labels)
         return img, boxes, labels
