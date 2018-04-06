@@ -28,6 +28,13 @@ from torchcv.visualizations import Visualizer
 from torchcv.utils.config import opt
 from torchnet.meter import AverageValueMeter
 
+
+def caffe_normalize(x):
+         return transforms.Compose([
+            transforms.Lambda(lambda x:255*x[[2,1,0]]) ,
+            transforms.Normalize([104,117,123], (1,1,1)), # make it the same as caffe
+                  # bgr and 0-255
+        ])(img)
 def Transform(box_coder, train=True):
     def train_(img, boxes, labels):
         img = random_distort(img)
@@ -38,7 +45,7 @@ def Transform(box_coder, train=True):
         img, boxes = random_flip(img, boxes)
         img = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+           caffe_normalize
         ])(img)
         boxes, labels = box_coder.encode(boxes, labels)
         return img, boxes, labels
@@ -47,7 +54,7 @@ def Transform(box_coder, train=True):
         img, boxes = resize(img, boxes, size=(opt.img_size, opt.img_size))
         img = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            caffe_normalize
         ])(img)
         boxes, labels = box_coder.encode(boxes, labels)
         return img, boxes, labels
@@ -62,7 +69,7 @@ def eval(net,test_num=10000):
         img, boxes = resize(img, boxes, size=(opt.img_size, opt.img_size))
         img = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+            caffe_normalize
         ])(img)
         return img, boxes, labels
 
@@ -116,7 +123,7 @@ def predict(net, box_coder, img):
         img = img.resize((ow, oh))
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        caffe_normalize
     ])
     x = transform(img).cuda()
     x = Variable(x, volatile=True)
@@ -186,7 +193,7 @@ def main(**kwargs):
             loss = criterion(loc_preds, loc_targets, cls_preds, cls_targets)
             loss.backward()
             train_loss += loss.data[0]
-            if (batch_idx+1) % (opt.iter_size ) == 0:
+            if (batch_idx+1) % (opt.iter_size) == 0:
             # if True:
                 for name,p in net.named_parameters():p.grad.data.div_(ix)
                 ix = 0
@@ -211,9 +218,9 @@ def main(**kwargs):
         #             'epoch': epoch,
         #     }
         #     torch.save(state, opt.checkpoint + '/%s.pth' % epoch)
-        if (epoch+1) % 30 == 0:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] *= 0.1
+        # if (epoch+1) % 30 == 0:
+        #     for param_group in optimizer.param_groups:
+        #         param_group['lr'] *= 0.1
         if (epoch+1)%5 ==0:
             aps = eval(net.module)
             map_ = aps['map']
@@ -227,8 +234,16 @@ def main(**kwargs):
                 best_map_ = map_
                 if not os.path.isdir(os.path.dirname(opt.checkpoint)):
                     os.mkdir(os.path.dirname(opt.checkpoint))
-                torch.save(state, opt.checkpoint + '/%s.pth' % best_map_)
-            vis.log(dict(epoch=epoch,map=map_))
+                best_path = opt.checkpoint + '/%s.pth' % best_map_
+                torch.save(state, best_path)
+            else:
+                        # if (epoch+1) % 30 == 0:
+                net.module.load_state_dict(torch.load(best_path)['net'])
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] *= 0.1
+            vis.log(dict(epoch=(epoch+1),map=map_,loss=train_loss / (batch_idx + 1)))
+            
+            
 
 
 if __name__ == '__main__':
