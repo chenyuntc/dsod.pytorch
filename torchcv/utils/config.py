@@ -15,6 +15,7 @@ class Config:
     img_size = 300
     env = 'dsod'
     iter_size = 4
+    eval_every=5
 
     def _parse(self, kwargs):
         state_dict = self._state_dict()

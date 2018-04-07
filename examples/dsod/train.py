@@ -1,32 +1,36 @@
 from __future__ import print_function
-import matplotlib
-from PIL import ImageFile
-ImageFile.LOAD_TRUNCATED_IMAGES = True
-matplotlib.use('agg')
+
 import os
 import random
 
-import torch
-import torch.optim as optim
-import torch.nn.functional as F
-import torch.backends.cudnn as cudnn
-
-import torchvision.transforms as transforms
-from PIL import Image, ImageDraw
-from torch.autograd import Variable
-
-from torchcv.models.ssd import SSDBoxCoder
+import matplotlib
 import numpy as np
-from torchcv.loss import SSDLoss
-from torchcv.datasets import ListDataset
-from torchcv.transforms import resize, random_flip, random_paste, random_crop, random_distort
-from torchcv.models import DSOD
-from torchcv.evaluations.voc_eval import voc_eval
+import torch
+import torch.backends.cudnn as cudnn
+import torch.nn.functional as F
+import torch.optim as optim
+import torchvision.transforms as transforms
+from PIL import Image, ImageDraw, ImageFile
+from torch.autograd import Variable
+from torchnet.meter import AverageValueMeter
 from tqdm import tqdm
+
+from torchcv.datasets import ListDataset
+from torchcv.evaluations.voc_eval import voc_eval
+from torchcv.loss import SSDLoss
+from torchcv.models import DSOD
+from torchcv.models.ssd import SSDBoxCoder
+from torchcv.transforms import (random_crop, random_distort, random_flip,
+                                random_paste, resize)
+from torchcv.utils.config import opt
 from torchcv.visualizations import Visualizer
 
-from torchcv.utils.config import opt
-from torchnet.meter import AverageValueMeter
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+matplotlib.use('agg')
+
+
+
+
 
 
 def caffe_normalize(x):
@@ -177,6 +181,7 @@ def main(**kwargs):
     optimizer = optim.SGD(net.parameters(), lr=opt.lr, momentum=0.9, weight_decay=5e-4)
 
     best_map_ = 0
+    best_loss = 1e100
     for epoch in range(start_epoch, start_epoch + 200):
         print('\nEpoch: %d' % epoch)
         net.train()
@@ -221,7 +226,15 @@ def main(**kwargs):
         # if (epoch+1) % 30 == 0:
         #     for param_group in optimizer.param_groups:
         #         param_group['lr'] *= 0.1
-        if (epoch+1)%5 ==0:
+        current_loss = train_loss/(1+batch_idx)
+        if current_loss< best_loss:
+            best_loss = current_loss
+            torch.save(net.module.state_dict(), '/tmp/dsod.pth')
+        
+
+        if (epoch+1)%opt.eval_every ==0:
+            net.module.load_state_dict(torch.load('/tmp/dsod.pth'))
+
             aps = eval(net.module)
             map_ = aps['map']
             if map_ > best_map_:
@@ -237,7 +250,6 @@ def main(**kwargs):
                 best_path = opt.checkpoint + '/%s.pth' % best_map_
                 torch.save(state, best_path)
             else:
-                        # if (epoch+1) % 30 == 0:
                 net.module.load_state_dict(torch.load(best_path)['net'])
                 for param_group in optimizer.param_groups:
                     param_group['lr'] *= 0.1
