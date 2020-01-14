@@ -7,4 +7,6 @@ Original Implementation in Caffe could be found from [here](https://github.com/s
 This implementation is based on [torchcv](https://github.com/kuangliu/torchcv):a PyTorch vision library mimics ChainerCV
 
 
-Still working on it, stay tuned.
+see train code at `examples/dsod/train.py`
+
+see model at `torchcv/models/dsod/'
